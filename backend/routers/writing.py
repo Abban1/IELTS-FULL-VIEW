@@ -1,0 +1,44 @@
+from fastapi import APIRouter, Query, HTTPException
+from fastapi.responses import PlainTextResponse, JSONResponse
+from datetime import datetime
+from bson import ObjectId
+
+from db import writing_col
+from services.writing import generate_ielts_task
+
+router = APIRouter(prefix="/writing", tags=["Writing"])
+
+# Generate new writing task
+@router.get("/generate", response_class=PlainTextResponse)
+def generate_writing(task_type: str = Query(..., description="task1 or task2"),
+                     level: str = Query("Academic", description="Academic or General")):
+    question = generate_ielts_task(task_type, level)
+    doc = {
+        "task_type": task_type,
+        "level": level,
+        "question": question,
+        "created_at": datetime.utcnow()
+    }
+    writing_col.insert_one(doc)
+    return question
+
+# List all writing tasks (metadata)
+@router.get("/tests")
+def list_writing():
+    data = []
+    for t in writing_col.find().sort("created_at", -1):
+        data.append({
+            "id": str(t["_id"]),
+            "task_type": t.get("task_type", "Unknown"),
+            "level": t.get("level", "Unknown"),
+            "created_at": t["created_at"].isoformat() if "created_at" in t else None
+        })
+    return JSONResponse(content=data)
+
+# Get full writing task by ID
+@router.get("/tests/{test_id}", response_class=PlainTextResponse)
+def get_writing(test_id: str):
+    test = writing_col.find_one({"_id": ObjectId(test_id)})
+    if not test:
+        raise HTTPException(404, "Test not found")
+    return test.get("question", "No content available")

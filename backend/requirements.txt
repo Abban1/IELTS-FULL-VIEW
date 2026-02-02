@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+pymongo
+python-dotenv
+google-genai   # for Gemini API (Reading)
+groq          # for Groq API (Writing, Speaking, Listening)

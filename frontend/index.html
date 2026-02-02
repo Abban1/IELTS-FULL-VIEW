@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IELTS Tests Viewer</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+    color: #333;
+  }
+  select, button {
+    padding: 8px 12px;
+    margin-right: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+  }
+  button {
+    cursor: pointer;
+    background: #4CAF50;
+    color: white;
+    border: none;
+  }
+  button:hover {
+    background: #45a049;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background: #fff;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 12px;
+    text-align: left;
+  }
+  th {
+    background: #007BFF;
+    color: white;
+  }
+  tr:nth-child(even) {
+    background: #f2f2f2;
+  }
+  tr:hover {
+    background: #d1e7ff;
+    cursor: pointer;
+  }
+  #testContent {
+    margin-top: 20px;
+    padding: 15px;
+    background: #fff3cd;
+    border-left: 5px solid #ffc107;
+    border-radius: 6px;
+    white-space: pre-wrap;
+  }
+  .tag {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    color: white;
+    margin-bottom: 10px;
+  }
+  .Academic { background: #007BFF; }
+  .General { background: #28a745; }
+  .Task1 { background: #6f42c1; }
+  .Task2 { background: #e83e8c; }
+</style>
+</head>
+<body>
+
+<h1>IELTS Tests Viewer</h1>
+
+<div>
+  <label for="moduleSelect">Choose Module:</label>
+  <select id="moduleSelect">
+    <option value="reading">Reading</option>
+    <option value="writing">Writing</option>
+    <option value="listening">Listening</option>
+    <option value="speaking">Speaking</option>
+  </select>
+  <button onclick="generateTest()">Generate New Test</button>
+  <button onclick="loadTests()">Load Tests</button>
+</div>
+
+<table id="testsTable">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Level / Task</th>
+      <th>Created At</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td colspan="3">No tests loaded. Click "Load Tests".</td></tr>
+  </tbody>
+</table>
+
+<div id="testContent">
+  Click a test above or generate a new test to view its content here.
+</div>
+
+<script>
+const backendURL = "http://127.0.0.1:8000"; // adjust if needed
+
+async function loadTests() {
+  const module = document.getElementById("moduleSelect").value;
+  const tableBody = document.querySelector("#testsTable tbody");
+  tableBody.innerHTML = "<tr><td colspan='3'>Loading...</td></tr>";
+
+  try {
+    const res = await fetch(`${backendURL}/${module}/tests`);
+    if (!res.ok) throw new Error("Failed to load tests.");
+    const data = await res.json();
+
+    if (data.length === 0) {
+      tableBody.innerHTML = "<tr><td colspan='3'>No tests available.</td></tr>";
+      return;
+    }
+
+    tableBody.innerHTML = "";
+    data.forEach(test => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${test.id}</td>
+        <td>${test.level || test.task_type || "-"}</td>
+        <td>${new Date(test.created_at).toLocaleString()}</td>
+      `;
+      tr.onclick = () => viewTest(module, test.id);
+      tableBody.appendChild(tr);
+    });
+
+  } catch (err) {
+    console.error(err);
+    tableBody.innerHTML = "<tr><td colspan='3'>Error loading tests.</td></tr>";
+  }
+}
+
+async function viewTest(module, id) {
+  const testContent = document.getElementById("testContent");
+  testContent.innerHTML = "Loading test...";
+  try {
+    const res = await fetch(`${backendURL}/${module}/tests/${id}`);
+    if (!res.ok) throw new Error("Failed to fetch test.");
+    const content = await res.text();
+    testContent.innerHTML = content;
+  } catch (err) {
+    console.error(err);
+    testContent.innerHTML = "Error loading test.";
+  }
+}
+
+async function generateTest() {
+  const module = document.getElementById("moduleSelect").value;
+  const testContent = document.getElementById("testContent");
+  testContent.innerHTML = "Generating test...";
+
+  let url = `${backendURL}/${module}/generate`;
+  if(module === "reading") {
+    url += `?level=General Training&difficulty=Medium`;
+  } else if(module === "writing") {
+    url += `?task_type=task1&level=Academic`;
+  } else if(module === "speaking") {
+    url += `?level=Academic`;
+  } else if(module === "listening") {
+    url += `?level=Academic`;
+  }
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to generate test.");
+    const content = await res.text();
+    testContent.innerHTML = content;
+  } catch (err) {
+    console.error(err);
+    testContent.innerHTML = "Error generating test.";
+  }
+}
+</script>
+
+</body>
+</html>
