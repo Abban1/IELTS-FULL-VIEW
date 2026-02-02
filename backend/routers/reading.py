@@ -45,6 +45,13 @@ def list_tests():
         })
     return JSONResponse(content=data)
 
+# Get a specific Reading test
+@router.get("/tests/{test_id}", response_class=PlainTextResponse)
+def get_test(test_id: str):
+    test = reading_col.find_one({"_id": ObjectId(test_id)})
+    if not test:
+        raise HTTPException(404, "Not found")
+    return test["content"]
 
 # Delete a Reading test
 @router.delete("/tests/{test_id}")
