@@ -41,13 +41,7 @@ def list_tests():
         })
     return JSONResponse(content=data)
 
-# Get a specific Writing test
-@router.get("/tests/{test_id}", response_class=PlainTextResponse)
-def get_writing(test_id: str):
-    test = writing_col.find_one({"_id": ObjectId(test_id)})
-    if not test:
-        raise HTTPException(404, "Not found")
-    return test["question"]
+
 
 # Delete a Writing test
 @router.delete("/tests/{test_id}")

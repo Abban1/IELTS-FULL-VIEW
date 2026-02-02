@@ -38,13 +38,7 @@ def list_listening():
         })
     return JSONResponse(content=data)
 
-# Get a specific Listening test
-@router.get("/tests/{test_id}", response_class=PlainTextResponse)
-def get_listening(test_id: str):
-    test = listening_col.find_one({"_id": ObjectId(test_id)})
-    if not test:
-        raise HTTPException(404, "Not found")
-    return test["test"]
+
 
 # Delete a Listening test
 @router.delete("/tests/{test_id}")

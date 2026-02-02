@@ -42,13 +42,7 @@ def list_speaking():
         })
     return JSONResponse(content=data)
 
-# Get a specific Speaking test
-@router.get("/tests/{test_id}", response_class=PlainTextResponse)
-def get_speaking(test_id: str):
-    test = speaking_col.find_one({"_id": ObjectId(test_id)})
-    if not test:
-        raise HTTPException(404, "Not found")
-    return test["questions"]
+
 
 # Delete a Speaking test
 @router.delete("/tests/{test_id}")
