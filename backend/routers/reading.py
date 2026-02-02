@@ -42,6 +42,14 @@ def list_tests():
         })
     return JSONResponse(content=data)
 
+@router.delete("/tests/{test_id}")
+def delete_reading(test_id: str):
+    result = reading_col.delete_one({"_id": ObjectId(test_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Test not found")
+    return {"message": f"Reading test {test_id} deleted successfully"}
+
+
 # Get full reading test by ID
 @router.get("/tests/{test_id}", response_class=PlainTextResponse)
 def get_test(test_id: str):

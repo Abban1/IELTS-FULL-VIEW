@@ -34,6 +34,14 @@ def list_listening():
         })
     return JSONResponse(content=data)
 
+@router.delete("/tests/{test_id}")
+def delete_listening(test_id: str):
+    result = listening_col.delete_one({"_id": ObjectId(test_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Test not found")
+    return {"message": f"Listening test {test_id} deleted successfully"}
+
+
 # Get full test content by ID
 @router.get("/tests/{test_id}", response_class=PlainTextResponse)
 def get_listening(test_id: str):

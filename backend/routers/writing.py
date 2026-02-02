@@ -35,6 +35,13 @@ def list_writing():
         })
     return JSONResponse(content=data)
 
+@router.delete("/tests/{test_id}")
+def delete_writing(test_id: str):
+    result = writing_col.delete_one({"_id": ObjectId(test_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Test not found")
+    return {"message": f"Writing test {test_id} deleted successfully"}
+
 # Get full writing task by ID
 @router.get("/tests/{test_id}", response_class=PlainTextResponse)
 def get_writing(test_id: str):
