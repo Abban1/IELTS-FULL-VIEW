@@ -37,6 +37,7 @@
 <table id="testsTable">
     <thead>
         <tr>
+            <th>Name</th>
             <th>ID</th>
             <th>Level / Type</th>
             <th>Created At</th>
@@ -68,6 +69,7 @@ async function fetchTests() {
             const tr = document.createElement("tr");
 
             tr.innerHTML = `
+                <td>${test.name || "N/A"}</td>
                 <td>${test.id}</td>
                 <td>${test.level || test.task_type || "N/A"}</td>
                 <td>${new Date(test.created_at).toLocaleString()}</td>
@@ -79,7 +81,7 @@ async function fetchTests() {
 
             // View Test
             tr.querySelector(".view-btn").addEventListener("click", async () => {
-                let endpoint = `http://127.0.0.1:8000/${module}/tests/${test.id}`;
+                const endpoint = `http://127.0.0.1:8000/${module}/tests/${test.id}`;
                 const res = await fetch(endpoint);
                 const content = await res.text();
                 testContent.textContent = content;

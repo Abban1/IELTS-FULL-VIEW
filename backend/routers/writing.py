@@ -1,51 +1,58 @@
 from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from datetime import datetime
 from bson import ObjectId
-
 from db import writing_col
 from services.writing import generate_ielts_task
 
 router = APIRouter(prefix="/writing", tags=["Writing"])
 
-# Generate new writing task
+# Generate new Writing test
 @router.get("/generate", response_class=PlainTextResponse)
 def generate_writing(task_type: str = Query(..., description="task1 or task2"),
                      level: str = Query("Academic", description="Academic or General")):
     question = generate_ielts_task(task_type, level)
-    doc = {
+
+    # Generate name automatically
+    count = writing_col.count_documents({})
+    test_name = f"IELTS Writing Mock {count + 1}"
+
+    writing_col.insert_one({
+        "name": test_name,
         "task_type": task_type,
         "level": level,
         "question": question,
         "created_at": datetime.utcnow()
-    }
-    writing_col.insert_one(doc)
+    })
+
     return question
 
-# List all writing tasks (metadata)
+# List all Writing tests
 @router.get("/tests")
-def list_writing():
+def list_tests():
     data = []
     for t in writing_col.find().sort("created_at", -1):
         data.append({
             "id": str(t["_id"]),
-            "task_type": t.get("task_type", "Unknown"),
-            "level": t.get("level", "Unknown"),
-            "created_at": t["created_at"].isoformat() if "created_at" in t else None
+            "name": t.get("name", "N/A"),
+            "task_type": t.get("task_type"),
+            "level": t.get("level"),
+            "created_at": t["created_at"].isoformat()
         })
     return JSONResponse(content=data)
 
+# Get a specific Writing test
+@router.get("/tests/{test_id}", response_class=PlainTextResponse)
+def get_writing(test_id: str):
+    test = writing_col.find_one({"_id": ObjectId(test_id)})
+    if not test:
+        raise HTTPException(404, "Not found")
+    return test["question"]
+
+# Delete a Writing test
 @router.delete("/tests/{test_id}")
 def delete_writing(test_id: str):
     result = writing_col.delete_one({"_id": ObjectId(test_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Test not found")
-    return {"message": f"Writing test {test_id} deleted successfully"}
-
-# Get full writing task by ID
-@router.get("/tests/{test_id}", response_class=PlainTextResponse)
-def get_writing(test_id: str):
-    test = writing_col.find_one({"_id": ObjectId(test_id)})
-    if not test:
-        raise HTTPException(404, "Test not found")
-    return test.get("question", "No content available")
+    return {"message": f"Test {test_id} deleted successfully"}
