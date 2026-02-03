@@ -116,6 +116,7 @@ generateBtn.addEventListener("click", async () => {
         const task_type = prompt("Enter task type (task1 or task2):", "task1");
         if (!task_type) return alert("Task type is required!");
         endpoint += `?task_type=${task_type}`;
+        fetchTests();
     }
 
     try {
