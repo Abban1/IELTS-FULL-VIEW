@@ -168,7 +168,7 @@ Generate in exact format as given but in plainntext
                 {"role": "system", "content": "You are an expert IELTS Listening test generator."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
+            temperature=0.3,
             max_tokens=5000
         )
         return response.choices[0].message.content.strip()
