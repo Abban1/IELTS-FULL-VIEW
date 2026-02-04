@@ -28,39 +28,48 @@ def generate_writing(task_type: str = Query(..., description="task1 or task2"),
 
 # List Writing tests with search, date filter & pagination
 @router.get("/tests")
-def list_tests(
+async def get_tests(
     page: int = 1,
     page_size: int = 10,
     search: str = None,
     from_date: str = None,
-    to_date: str = None
+    to_date: str = None,
+    sort_by: str = "desc"
 ):
     query = {}
+    
+    # Search filter
     if search:
-        query["name"] = {"$regex": search, "$options": "i"}
-
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+        ]
+    
+    # Date filters
     if from_date:
         query["created_at"] = {"$gte": datetime.strptime(from_date, "%Y-%m-%d")}
     if to_date:
-        end_day = datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
-        if "created_at" in query:
-            query["created_at"]["$lte"] = end_day
-        else:
-            query["created_at"] = {"$lte": end_day}
-
-    total_items = writing_col.count_documents(query)
-    total_pages = max((total_items + page_size - 1) // page_size, 1)
-
-    cursor = writing_col.find(query).sort("created_at", -1).skip((page-1)*page_size).limit(page_size)
-    data = [{
-        "id": str(t["_id"]),
-        "name": t.get("name", "N/A"),
-        "task_type": t.get("task_type"),
-        "level": t.get("level"),
-        "created_at": t["created_at"].isoformat()
-    } for t in cursor]
-
-    return JSONResponse(content={"tests": data, "total_pages": total_pages, "total_items": total_items})
+        if "created_at" not in query:
+            query["created_at"] = {}
+        query["created_at"]["$lte"] = datetime.strptime(to_date, "%Y-%m-%d")
+    
+    # Sorting: -1 for desc (newest first), 1 for asc (oldest first)
+    sort_order = -1 if sort_by == "desc" else 1
+    
+    # Count total
+    total = writing_col.count_documents(query)
+    total_pages = (total + page_size - 1) // page_size
+    
+    # Fetch with sorting
+    tests = list(writing_col.find(query)
+                 .sort("created_at", sort_order)
+                 .skip((page - 1) * page_size)
+                 .limit(page_size))
+    
+    for test in tests:
+        test["_id"] = str(test["_id"])
+        test["id"] = str(test["_id"])  # Add this for frontend compatibility
+    
+    return {"tests": tests, "total": total, "total_pages": total_pages}
 
 # Get Writing test
 @router.get("/tests/{test_id}", response_class=PlainTextResponse)
