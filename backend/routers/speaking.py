@@ -14,8 +14,6 @@ def generate_speaking(
     context_question: str = Query(None, description="Reference context for Part 2 and Part 3")
 ):
     questions = generate_ielts_speaking(level, context_question)
-
-    # Generate name automatically
     count = speaking_col.count_documents({})
     test_name = f"IELTS Speaking Mock {count + 1}"
 
@@ -29,18 +27,34 @@ def generate_speaking(
 
     return questions
 
-# List all Speaking tests
+# List all Speaking tests with pagination & search
 @router.get("/tests")
-def list_speaking():
-    data = []
-    for t in speaking_col.find().sort("created_at", -1):
-        data.append({
-            "id": str(t["_id"]),
-            "name": t.get("name", "N/A"),
-            "level": t.get("level"),
-            "created_at": t["created_at"].isoformat()
-        })
-    return JSONResponse(content=data)
+def list_speaking(
+    page: int = 1,
+    page_size: int = 10,
+    search: str = None
+):
+    query = {}
+    if search:
+        query["name"] = {"$regex": search, "$options": "i"}
+
+    total_items = speaking_col.count_documents(query)
+    total_pages = (total_items + page_size - 1) // page_size
+
+    cursor = speaking_col.find(query).sort("created_at", -1).skip((page-1)*page_size).limit(page_size)
+    data = [{
+        "id": str(t["_id"]),
+        "name": t.get("name", "N/A"),
+        "level": t.get("level"),
+        "created_at": t["created_at"].isoformat()
+    } for t in cursor]
+
+    return JSONResponse(content={
+        "tests": data,
+        "total_pages": total_pages,
+        "total_items": total_items
+    })
+
 # Get a specific Speaking test
 @router.get("/tests/{test_id}", response_class=PlainTextResponse)
 def get_speaking(test_id: str):
@@ -48,7 +62,6 @@ def get_speaking(test_id: str):
     if not test:
         raise HTTPException(404, "Not found")
     return test["questions"]
-
 
 # Delete a Speaking test
 @router.delete("/tests/{test_id}")

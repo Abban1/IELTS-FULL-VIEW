@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from datetime import datetime
 from bson import ObjectId
 from db import listening_col
@@ -11,8 +11,6 @@ router = APIRouter(prefix="/listening", tags=["Listening"])
 @router.get("/generate", response_class=PlainTextResponse)
 def generate_listening(level: str = Query("Academic", description="Academic or General")):
     test_text = generate_ielts_listening_test(level)
-
-    # Generate name automatically
     count = listening_col.count_documents({})
     test_name = f"IELTS Listening Mock {count + 1}"
 
@@ -25,28 +23,43 @@ def generate_listening(level: str = Query("Academic", description="Academic or G
 
     return test_text
 
-# List all Listening tests
+# List Listening tests with pagination & search
 @router.get("/tests")
-def list_listening():
-    data = []
-    for t in listening_col.find().sort("created_at", -1):
-        data.append({
-            "id": str(t["_id"]),
-            "name": t.get("name", "N/A"),
-            "level": t.get("level"),
-            "created_at": t["created_at"].isoformat()
-        })
-    return JSONResponse(content=data)
+def list_tests(
+    page: int = 1,
+    page_size: int = 10,
+    search: str = None
+):
+    query = {}
+    if search:
+        query["name"] = {"$regex": search, "$options": "i"}
 
-# Get a specific Listening test
+    total_items = listening_col.count_documents(query)
+    total_pages = (total_items + page_size - 1) // page_size
+
+    cursor = listening_col.find(query).sort("created_at", -1).skip((page-1)*page_size).limit(page_size)
+    data = [{
+        "id": str(t["_id"]),
+        "name": t.get("name", "N/A"),
+        "level": t.get("level"),
+        "created_at": t["created_at"].isoformat()
+    } for t in cursor]
+
+    return JSONResponse(content={
+        "tests": data,
+        "total_pages": total_pages,
+        "total_items": total_items
+    })
+
+# Get specific Listening test
 @router.get("/tests/{test_id}", response_class=PlainTextResponse)
-def get_listening(test_id: str):
+def get_test(test_id: str):
     test = listening_col.find_one({"_id": ObjectId(test_id)})
     if not test:
         raise HTTPException(404, "Not found")
     return test["test"]
 
-# Delete a Listening test
+# Delete Listening test
 @router.delete("/tests/{test_id}")
 def delete_listening(test_id: str):
     result = listening_col.delete_one({"_id": ObjectId(test_id)})

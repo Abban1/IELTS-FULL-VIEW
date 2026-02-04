@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
 from datetime import datetime
 from bson import ObjectId
 from db import writing_col
@@ -9,11 +9,11 @@ router = APIRouter(prefix="/writing", tags=["Writing"])
 
 # Generate new Writing test
 @router.get("/generate", response_class=PlainTextResponse)
-def generate_writing(task_type: str = Query(..., description="task1 or task2"),
-                     level: str = Query("Academic", description="Academic or General")):
+def generate_writing(
+    task_type: str = Query(..., description="task1 or task2"),
+    level: str = Query("Academic", description="Academic or General")
+):
     question = generate_ielts_task(task_type, level)
-
-    # Generate name automatically
     count = writing_col.count_documents({})
     test_name = f"IELTS Writing Mock {count + 1}"
 
@@ -27,19 +27,34 @@ def generate_writing(task_type: str = Query(..., description="task1 or task2"),
 
     return question
 
-# List all Writing tests
+# List all Writing tests with pagination & search
 @router.get("/tests")
-def list_tests():
-    data = []
-    for t in writing_col.find().sort("created_at", -1):
-        data.append({
-            "id": str(t["_id"]),
-            "name": t.get("name", "N/A"),
-            "task_type": t.get("task_type"),
-            "level": t.get("level"),
-            "created_at": t["created_at"].isoformat()
-        })
-    return JSONResponse(content=data)
+def list_tests(
+    page: int = 1,
+    page_size: int = 10,
+    search: str = None
+):
+    query = {}
+    if search:
+        query["name"] = {"$regex": search, "$options": "i"}
+
+    total_items = writing_col.count_documents(query)
+    total_pages = (total_items + page_size - 1) // page_size
+
+    cursor = writing_col.find(query).sort("created_at", -1).skip((page-1)*page_size).limit(page_size)
+    data = [{
+        "id": str(t["_id"]),
+        "name": t.get("name", "N/A"),
+        "task_type": t.get("task_type"),
+        "level": t.get("level"),
+        "created_at": t["created_at"].isoformat()
+    } for t in cursor]
+
+    return JSONResponse(content={
+        "tests": data,
+        "total_pages": total_pages,
+        "total_items": total_items
+    })
 
 # Get a specific Writing test
 @router.get("/tests/{test_id}", response_class=PlainTextResponse)
