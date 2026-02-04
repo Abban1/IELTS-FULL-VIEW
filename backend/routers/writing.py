@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
 from datetime import datetime
 from bson import ObjectId
 from db import writing_col
@@ -7,15 +7,11 @@ from services.writing import generate_ielts_task
 
 router = APIRouter(prefix="/writing", tags=["Writing"])
 
-# Generate new Writing test
 @router.get("/generate", response_class=PlainTextResponse)
-def generate_writing(
-    task_type: str = Query(..., description="task1 or task2"),
-    level: str = Query("Academic", description="Academic or General")
-):
+def generate_writing(task_type: str = Query(..., description="task1 or task2"),
+                     level: str = Query("Academic", description="Academic or General")):
     question = generate_ielts_task(task_type, level)
 
-    # Generate name automatically
     count = writing_col.count_documents({})
     test_name = f"IELTS Writing Mock {count + 1}"
 
@@ -29,16 +25,15 @@ def generate_writing(
 
     return question
 
-# List all Writing tests with search & pagination
 @router.get("/tests")
 def list_tests(page: int = 1, page_size: int = 10, search: str = None):
     query = {}
     if search:
         try:
             obj_id = ObjectId(search)
-            query = {"$or": [{"name": {"$regex": search, "$options": "i"}}, {"_id": obj_id}]}
+            query = {"$or": [{"name": search}, {"_id": obj_id}]}
         except:
-            query = {"name": {"$regex": search, "$options": "i"}}
+            query = {"name": search}
 
     total_items = writing_col.count_documents(query)
     total_pages = (total_items + page_size - 1) // page_size
@@ -52,13 +47,8 @@ def list_tests(page: int = 1, page_size: int = 10, search: str = None):
         "created_at": t["created_at"].isoformat()
     } for t in cursor]
 
-    return JSONResponse({
-        "tests": data,
-        "total_pages": total_pages,
-        "total_items": total_items
-    })
+    return JSONResponse(content={"tests": data, "total_pages": total_pages, "total_items": total_items})
 
-# Get specific Writing test
 @router.get("/tests/{test_id}", response_class=PlainTextResponse)
 def get_writing(test_id: str):
     test = writing_col.find_one({"_id": ObjectId(test_id)})
@@ -66,7 +56,6 @@ def get_writing(test_id: str):
         raise HTTPException(404, "Not found")
     return test["question"]
 
-# Delete a Writing test
 @router.delete("/tests/{test_id}")
 def delete_writing(test_id: str):
     result = writing_col.delete_one({"_id": ObjectId(test_id)})
