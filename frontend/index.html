@@ -60,7 +60,7 @@ tr:hover { background:#f8f9fa; }
 </select>
 <input type="number" id="customPageSize" placeholder="Custom" min="1" max="500" style="display:none;">
 </div>
-<button id="searchBtn">Filter</button>
+<button id="applyBtn">Apply</button>
 <button class="generate-btn" id="generate">Generate Test</button>
 </div>
 
@@ -89,24 +89,6 @@ $('pageSize').onchange = function() {
         $('customPageSize').focus();
     } else {
         $('customPageSize').style.display = 'none';
-        p = 1;
-        load();
-    }
-};
-
-// Load when custom value is entered
-$('customPageSize').oninput = function() {
-    if(this.value && this.value > 0) {
-        p = 1;
-        load();
-    }
-};
-
-// Also trigger on Enter key
-$('customPageSize').onkeypress = function(e) {
-    if(e.key === 'Enter' && this.value > 0) {
-        p = 1;
-        load();
     }
 };
 
@@ -129,25 +111,30 @@ async function load(){
     if($('to').value) params.append('to_date', $('to').value);
     params.append('sort_by', $('sort').value);
 
-    const res = await fetch(`http://127.0.0.1:8000/${mod}/tests?${params}`);
-    const {tests, total_pages} = await res.json();
+    try {
+        const res = await fetch(`http://127.0.0.1:8000/${mod}/tests?${params}`);
+        const {tests, total_pages, total} = await res.json();
 
-    tbody.innerHTML = tests.length ? tests.map(t => `
-        <tr>
-            <td>${t.name||'N/A'}</td>
-            <td>${t.id}</td>
-            <td>${t.level||t.task_type||'N/A'}</td>
-            <td>${new Date(t.created_at).toLocaleString()}</td>
-            <td>
-                <button class="view-btn" onclick="view('${t.id}')">View</button>
-                <button class="delete-btn" onclick="del('${t.id}')">Delete</button>
-            </td>
-        </tr>
-    `).join('') : '<tr><td colspan="5">No tests found</td></tr>';
+        tbody.innerHTML = tests.length ? tests.map(t => `
+            <tr>
+                <td>${t.name||'N/A'}</td>
+                <td>${t.id}</td>
+                <td>${t.level||t.task_type||'N/A'}</td>
+                <td>${new Date(t.created_at).toLocaleString()}</td>
+                <td>
+                    <button class="view-btn" onclick="view('${t.id}')">View</button>
+                    <button class="delete-btn" onclick="del('${t.id}')">Delete</button>
+                </td>
+            </tr>
+        `).join('') : '<tr><td colspan="5">No tests found</td></tr>';
 
-    $('page').textContent = `Page ${p} of ${total_pages||1}`;
-    $('prev').disabled = p <= 1;
-    $('next').disabled = p >= total_pages;
+        $('page').textContent = `Page ${p} of ${total_pages||1} (${total||0} total)`;
+        $('prev').disabled = p <= 1;
+        $('next').disabled = p >= total_pages;
+    } catch(e) {
+        console.error('Error loading tests:', e);
+        tbody.innerHTML = '<tr><td colspan="5">Error loading tests</td></tr>';
+    }
 }
 
 async function view(id){
@@ -163,9 +150,17 @@ async function del(id){
 
 $('prev').onclick = () => { if(p>1) p--, load(); };
 $('next').onclick = () => { p++; load(); };
-$('searchBtn').onclick = () => { p=1; load(); };
+$('applyBtn').onclick = () => { p=1; load(); };  // Changed from searchBtn to applyBtn
 $('sort').onchange = () => { p=1; load(); };
-$('module').onchange = () => { p=1; $('search').value=''; $('from').value=''; $('to').value=''; load(); };
+$('module').onchange = () => { 
+    p=1; 
+    $('search').value=''; 
+    $('from').value=''; 
+    $('to').value=''; 
+    $('pageSize').value='10';
+    $('customPageSize').style.display='none';
+    load(); 
+};
 
 $('generate').onclick = async () => {
     let url = `http://127.0.0.1:8000/${mod}/generate`;

@@ -40,17 +40,31 @@ async def get_tests(
     
     # Search filter
     if search:
-        query["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-        ]
+        # Try to search by ObjectId if it's a valid ObjectId format
+        search_conditions = [{"name": {"$regex": search, "$options": "i"}}]
+        
+        # Check if search string is a valid ObjectId (24 hex characters)
+        if len(search) == 24 and all(c in '0123456789abcdefABCDEF' for c in search):
+            try:
+                search_conditions.append({"_id": ObjectId(search)})
+            except:
+                pass
+        
+        query["$or"] = search_conditions
     
     # Date filters
     if from_date:
-        query["created_at"] = {"$gte": datetime.strptime(from_date, "%Y-%m-%d")}
+        # Start of the day (00:00:00)
+        from_datetime = datetime.strptime(from_date, "%Y-%m-%d")
+        query["created_at"] = {"$gte": from_datetime}
+    
     if to_date:
+        # End of the day (23:59:59)
+        to_datetime = datetime.strptime(to_date, "%Y-%m-%d")
+        to_datetime = to_datetime.replace(hour=23, minute=59, second=59)
         if "created_at" not in query:
             query["created_at"] = {}
-        query["created_at"]["$lte"] = datetime.strptime(to_date, "%Y-%m-%d")
+        query["created_at"]["$lte"] = to_datetime
     
     # Sorting: -1 for desc (newest first), 1 for asc (oldest first)
     sort_order = -1 if sort_by == "desc" else 1
@@ -67,7 +81,7 @@ async def get_tests(
     
     for test in tests:
         test["_id"] = str(test["_id"])
-        test["id"] = str(test["_id"])  # Add this for frontend compatibility
+        test["id"] = str(test["_id"])
     
     return {"tests": tests, "total": total, "total_pages": total_pages}
 
