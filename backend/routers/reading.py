@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import PlainTextResponse, JSONResponse
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson import ObjectId
 from db import reading_col
 from services.reading import generate_section_1, generate_section_2, generate_section_3
@@ -17,7 +17,6 @@ def generate_reading(level: str = "General Training", difficulty: str = "Hard"):
         f"IELTS READING TEST\nTime allowed: 60 minutes\n\n{s1}\n\n{'='*60}\n\n{s2}\n\n{'='*60}\n\n{s3}"
     )
 
-    # Generate name automatically
     count = reading_col.count_documents({})
     test_name = f"IELTS Reading Mock {count + 1}"
 
@@ -31,19 +30,30 @@ def generate_reading(level: str = "General Training", difficulty: str = "Hard"):
 
     return full_test
 
-# List all Reading tests with pagination and search
+# List all Reading tests with search, date filter & pagination
 @router.get("/tests")
-def list_tests(page: int = 1, page_size: int = 10, search: str = None):
+def list_tests(
+    page: int = 1,
+    page_size: int = 10,
+    search: str = None,
+    from_date: str = None,
+    to_date: str = None
+):
     query = {}
     if search:
-        try:
-            obj_id = ObjectId(search)
-            query = {"$or": [{"name": search}, {"_id": obj_id}]}
-        except:
-            query = {"name": search}
+        query["name"] = {"$regex": search, "$options": "i"}
+
+    if from_date:
+        query["created_at"] = {"$gte": datetime.strptime(from_date, "%Y-%m-%d")}
+    if to_date:
+        end_day = datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+        if "created_at" in query:
+            query["created_at"]["$lte"] = end_day
+        else:
+            query["created_at"] = {"$lte": end_day}
 
     total_items = reading_col.count_documents(query)
-    total_pages = (total_items + page_size - 1) // page_size
+    total_pages = max((total_items + page_size - 1) // page_size, 1)
 
     cursor = reading_col.find(query).sort("created_at", -1).skip((page-1)*page_size).limit(page_size)
     data = [{
