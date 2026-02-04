@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from datetime import datetime
 from bson import ObjectId
 from db import writing_col
@@ -14,6 +14,8 @@ def generate_writing(
     level: str = Query("Academic", description="Academic or General")
 ):
     question = generate_ielts_task(task_type, level)
+
+    # Generate name automatically
     count = writing_col.count_documents({})
     test_name = f"IELTS Writing Mock {count + 1}"
 
@@ -27,16 +29,16 @@ def generate_writing(
 
     return question
 
-# List all Writing tests with pagination & search
+# List all Writing tests with search & pagination
 @router.get("/tests")
-def list_tests(
-    page: int = 1,
-    page_size: int = 10,
-    search: str = None
-):
+def list_tests(page: int = 1, page_size: int = 10, search: str = None):
     query = {}
     if search:
-        query["name"] = {"$regex": search, "$options": "i"}
+        try:
+            obj_id = ObjectId(search)
+            query = {"$or": [{"name": {"$regex": search, "$options": "i"}}, {"_id": obj_id}]}
+        except:
+            query = {"name": {"$regex": search, "$options": "i"}}
 
     total_items = writing_col.count_documents(query)
     total_pages = (total_items + page_size - 1) // page_size
@@ -50,13 +52,13 @@ def list_tests(
         "created_at": t["created_at"].isoformat()
     } for t in cursor]
 
-    return JSONResponse(content={
+    return JSONResponse({
         "tests": data,
         "total_pages": total_pages,
         "total_items": total_items
     })
 
-# Get a specific Writing test
+# Get specific Writing test
 @router.get("/tests/{test_id}", response_class=PlainTextResponse)
 def get_writing(test_id: str):
     test = writing_col.find_one({"_id": ObjectId(test_id)})

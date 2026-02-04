@@ -23,16 +23,16 @@ def generate_listening(level: str = Query("Academic", description="Academic or G
 
     return test_text
 
-# List Listening tests with pagination & search
+# List all Listening tests with search & pagination
 @router.get("/tests")
-def list_tests(
-    page: int = 1,
-    page_size: int = 10,
-    search: str = None
-):
+def list_listening(page: int = 1, page_size: int = 10, search: str = None):
     query = {}
     if search:
-        query["name"] = {"$regex": search, "$options": "i"}
+        try:
+            obj_id = ObjectId(search)
+            query = {"$or": [{"name": {"$regex": search, "$options": "i"}}, {"_id": obj_id}]}
+        except:
+            query = {"name": {"$regex": search, "$options": "i"}}
 
     total_items = listening_col.count_documents(query)
     total_pages = (total_items + page_size - 1) // page_size
@@ -45,7 +45,7 @@ def list_tests(
         "created_at": t["created_at"].isoformat()
     } for t in cursor]
 
-    return JSONResponse(content={
+    return JSONResponse({
         "tests": data,
         "total_pages": total_pages,
         "total_items": total_items
@@ -53,7 +53,7 @@ def list_tests(
 
 # Get specific Listening test
 @router.get("/tests/{test_id}", response_class=PlainTextResponse)
-def get_test(test_id: str):
+def get_listening(test_id: str):
     test = listening_col.find_one({"_id": ObjectId(test_id)})
     if not test:
         raise HTTPException(404, "Not found")

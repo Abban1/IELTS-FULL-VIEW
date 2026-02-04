@@ -1,72 +1,75 @@
 from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from datetime import datetime
 from bson import ObjectId
-from db import speaking_col
-from services.speaking import generate_ielts_speaking
+from db import writing_col
+from services.writing import generate_ielts_task
 
-router = APIRouter(prefix="/speaking", tags=["Speaking"])
+router = APIRouter(prefix="/writing", tags=["Writing"])
 
-# Generate Speaking test
+# Generate new Writing test
 @router.get("/generate", response_class=PlainTextResponse)
-def generate_speaking(
-    level: str = Query("Academic", description="Academic or General"),
-    context_question: str = Query(None, description="Reference context for Part 2 and Part 3")
+def generate_writing(
+    task_type: str = Query(..., description="task1 or task2"),
+    level: str = Query("Academic", description="Academic or General")
 ):
-    questions = generate_ielts_speaking(level, context_question)
-    count = speaking_col.count_documents({})
-    test_name = f"IELTS Speaking Mock {count + 1}"
+    question = generate_ielts_task(task_type, level)
 
-    speaking_col.insert_one({
+    # Generate name automatically
+    count = writing_col.count_documents({})
+    test_name = f"IELTS Writing Mock {count + 1}"
+
+    writing_col.insert_one({
         "name": test_name,
+        "task_type": task_type,
         "level": level,
-        "context_question": context_question,
-        "questions": questions,
+        "question": question,
         "created_at": datetime.utcnow()
     })
 
-    return questions
+    return question
 
-# List all Speaking tests with pagination & search
+# List all Writing tests with search & pagination
 @router.get("/tests")
-def list_speaking(
-    page: int = 1,
-    page_size: int = 10,
-    search: str = None
-):
+def list_tests(page: int = 1, page_size: int = 10, search: str = None):
     query = {}
     if search:
-        query["name"] = {"$regex": search, "$options": "i"}
+        try:
+            obj_id = ObjectId(search)
+            query = {"$or": [{"name": {"$regex": search, "$options": "i"}}, {"_id": obj_id}]}
+        except:
+            query = {"name": {"$regex": search, "$options": "i"}}
 
-    total_items = speaking_col.count_documents(query)
+    total_items = writing_col.count_documents(query)
     total_pages = (total_items + page_size - 1) // page_size
 
-    cursor = speaking_col.find(query).sort("created_at", -1).skip((page-1)*page_size).limit(page_size)
+    cursor = writing_col.find(query).sort("created_at", -1).skip((page-1)*page_size).limit(page_size)
     data = [{
         "id": str(t["_id"]),
         "name": t.get("name", "N/A"),
+        "task_type": t.get("task_type"),
         "level": t.get("level"),
         "created_at": t["created_at"].isoformat()
     } for t in cursor]
 
-    return JSONResponse(content={
+    return JSONResponse({
         "tests": data,
         "total_pages": total_pages,
         "total_items": total_items
     })
 
-# Get a specific Speaking test
+# Get specific Writing test
 @router.get("/tests/{test_id}", response_class=PlainTextResponse)
-def get_speaking(test_id: str):
-    test = speaking_col.find_one({"_id": ObjectId(test_id)})
+def get_writing(test_id: str):
+    test = writing_col.find_one({"_id": ObjectId(test_id)})
     if not test:
         raise HTTPException(404, "Not found")
-    return test["questions"]
+    return test["question"]
 
-# Delete a Speaking test
+# Delete a Writing test
 @router.delete("/tests/{test_id}")
-def delete_speaking(test_id: str):
-    result = speaking_col.delete_one({"_id": ObjectId(test_id)})
+def delete_writing(test_id: str):
+    result = writing_col.delete_one({"_id": ObjectId(test_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Test not found")
     return {"message": f"Test {test_id} deleted successfully"}

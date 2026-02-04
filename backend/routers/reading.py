@@ -7,7 +7,7 @@ from services.reading import generate_section_1, generate_section_2, generate_se
 
 router = APIRouter(prefix="/reading", tags=["Reading"])
 
-# Generate Reading test
+# Generate new Reading test
 @router.get("/generate", response_class=PlainTextResponse)
 def generate_reading(level: str = "General Training", difficulty: str = "Hard"):
     s1 = generate_section_1(level, difficulty)
@@ -28,16 +28,16 @@ def generate_reading(level: str = "General Training", difficulty: str = "Hard"):
 
     return full_test
 
-# List Reading tests with pagination & search
+# List all Reading tests with search & pagination
 @router.get("/tests")
-def list_tests(
-    page: int = 1,
-    page_size: int = 10,
-    search: str = None
-):
+def list_tests(page: int = 1, page_size: int = 10, search: str = None):
     query = {}
     if search:
-        query["name"] = {"$regex": search, "$options": "i"}
+        try:
+            obj_id = ObjectId(search)
+            query = {"$or": [{"name": {"$regex": search, "$options": "i"}}, {"_id": obj_id}]}
+        except:
+            query = {"name": {"$regex": search, "$options": "i"}}
 
     total_items = reading_col.count_documents(query)
     total_pages = (total_items + page_size - 1) // page_size
@@ -51,7 +51,7 @@ def list_tests(
         "created_at": t["created_at"].isoformat()
     } for t in cursor]
 
-    return JSONResponse(content={
+    return JSONResponse({
         "tests": data,
         "total_pages": total_pages,
         "total_items": total_items
