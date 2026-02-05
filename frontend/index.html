@@ -60,7 +60,6 @@ tr:hover { background:#f8f9fa; }
 </select>
 <input type="number" id="customPageSize" placeholder="Custom" min="1" max="500" style="display:none;">
 </div>
-<button id="applyBtn">Apply</button>
 <button class="generate-btn" id="generate">Generate Test</button>
 </div>
 
@@ -89,18 +88,34 @@ $('pageSize').onchange = function() {
         $('customPageSize').focus();
     } else {
         $('customPageSize').style.display = 'none';
+        p=1; load();
     }
+};
+
+// Automatically load on filter changes
+$('search').oninput = () => { p=1; load(); };
+$('from').onchange = () => { p=1; load(); };
+$('to').onchange = () => { p=1; load(); };
+$('sort').onchange = () => { p=1; load(); };
+$('customPageSize').oninput = () => { p=1; load(); };
+$('module').onchange = () => { 
+    p=1; 
+    $('search').value=''; 
+    $('from').value=''; 
+    $('to').value=''; 
+    $('pageSize').value='10';
+    $('customPageSize').style.display='none';
+    load(); 
 };
 
 async function load(){
     mod = $('module').value;
     
-    // Get page size from dropdown or custom input
     let pageSize;
     if($('pageSize').value === 'custom') {
         pageSize = $('customPageSize').value || 10;
         if(pageSize < 1) pageSize = 10;
-        if(pageSize > 500) pageSize = 500; // Max limit
+        if(pageSize > 500) pageSize = 500;
     } else {
         pageSize = $('pageSize').value;
     }
@@ -148,19 +163,8 @@ async function del(id){
     load();
 }
 
-$('prev').onclick = () => { if(p>1) p--, load(); };
+$('prev').onclick = () => { if(p>1) p--; load(); };
 $('next').onclick = () => { p++; load(); };
-$('applyBtn').onclick = () => { p=1; load(); };  // Changed from searchBtn to applyBtn
-$('sort').onchange = () => { p=1; load(); };
-$('module').onchange = () => { 
-    p=1; 
-    $('search').value=''; 
-    $('from').value=''; 
-    $('to').value=''; 
-    $('pageSize').value='10';
-    $('customPageSize').style.display='none';
-    load(); 
-};
 
 $('generate').onclick = async () => {
     let url = `http://127.0.0.1:8000/${mod}/generate`;
