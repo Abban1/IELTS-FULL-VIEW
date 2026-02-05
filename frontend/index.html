@@ -165,7 +165,7 @@ $('module').onchange = () => {
 $('generate').onclick = async () => {
     let url = `http://127.0.0.1:8000/${mod}/generate`;
     if(mod === 'writing') {
-        const type = prompt('Task type (task1/task2):', 'task1');
+        const type = prompt('Difficulty ?:', 'Medium');
         if(!type) return;
         url += `?task_type=${type}`;
     }

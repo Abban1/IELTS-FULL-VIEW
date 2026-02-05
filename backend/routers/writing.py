@@ -9,9 +9,9 @@ router = APIRouter(prefix="/writing", tags=["Writing"])
 
 # Generate Writing test
 @router.get("/generate", response_class=PlainTextResponse)
-def generate_writing(task_type: str = Query(..., description="task1 or task2"),
-                     level: str = Query("Academic", description="Academic or General")):
-    question = generate_ielts_task(task_type, level)
+def generate_writing(task_type: str = Query("General", description="General"),
+                     level: str = Query("Medium", description="Easy,Medium or Hard")):
+    question = generate_ielts_task(level)
 
     count = writing_col.count_documents({})
     test_name = f"IELTS Writing Mock {count + 1}"
